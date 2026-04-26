@@ -74,7 +74,8 @@ driver.quit()
 #### 方式 C：Shell 调用（适用于 Claude Code / Codex 等）
 
 ```bash
-python3 ~/.hermes/skills/anti-detect-browser/scripts/stealth_chrome.py search "关键词"
+# 将 /path/to/anti-detect-browser 替换为实际的项目路径
+python3 /path/to/anti-detect-browser/scripts/stealth_chrome.py search "关键词"
 ```
 
 ## API 参考
@@ -157,29 +158,29 @@ driver.quit()
 
 ## 其他 Agent 使用指南
 
-本 skill 不限于 Hermes，任何支持 shell 调用的 Agent 都能用。
+本工具不限于特定 Agent，任何支持 shell 调用的 Agent 都能用。
 
 ### Claude Code / Codex / Cursor
 
-1. **找到 skill 目录**：本 skill 位于 `~/.hermes/skills/anti-detect-browser/`
-2. **安装依赖**：`bash ~/.hermes/skills/anti-detect-browser/scripts/install.sh`
-3. **调用**：`python3 ~/.hermes/skills/anti-detect-browser/scripts/stealth_chrome.py search "关键词"`
+1. **克隆仓库**：`git clone https://github.com/zninggo/anti-detect-browser.git`
+2. **安装依赖**：`bash anti-detect-browser/scripts/install.sh`
+3. **调用**：`python3 anti-detect-browser/scripts/stealth_chrome.py search "关键词"`
 
 或者在项目的 CLAUDE.md / AGENTS.md 中添加引用：
 
 ```markdown
 ## 搜索工具
 需要搜索或抓取网页时，使用反检测浏览器：
-- 安装：bash ~/.hermes/skills/anti-detect-browser/scripts/install.sh
-- 搜索：python3 ~/.hermes/skills/anti-detect-browser/scripts/stealth_chrome.py search "关键词"
-- 抓取：python3 ~/.hermes/skills/anti-detect-browser/scripts/stealth_chrome.py get <url>
+- 安装：bash /path/to/anti-detect-browser/scripts/install.sh
+- 搜索：python3 /path/to/anti-detect-browser/scripts/stealth_chrome.py search "关键词"
+- 抓取：python3 /path/to/anti-detect-browser/scripts/stealth_chrome.py get <url>
 ```
 
 ### 任意 Python 脚本
 
 ```python
 import sys
-sys.path.insert(0, '/root/.hermes/skills/anti-detect-browser/scripts')
+sys.path.insert(0, '/path/to/anti-detect-browser/scripts')
 from stealth_chrome import create_stealth_driver, google_search
 
 driver = create_stealth_driver()
@@ -233,6 +234,6 @@ driver.quit()
 ### JS 渲染页面抓取失败
 - `stealth_chrome.py get` 命令返回的是原始 HTML，不执行 JavaScript
 - 对于 JS 动态加载内容的网站（如 weather.com.cn、大部分天气/新闻门户），`get` 只能拿到空壳 HTML 框架
-- **解决方案**：先用 `search` 命令找到目标 URL，然后改用 Hermes 内置的 `browser_navigate` + `browser_snapshot` 工具渲染页面获取内容
+- **解决方案**：对于 JS 渲染页面，需要使用支持 JavaScript 渲染的工具（如 Playwright、Puppeteer 等）
 - 典型失败案例：中国天气网 (weather.com.cn)、深圳市气象局 (weather.sz.gov.cn) 等政府/门户站点
 - **判断依据**：如果 `get` 返回的 HTML 中关键内容区域为空或只有占位符，说明是 JS 渲染页面
