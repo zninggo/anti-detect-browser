@@ -24,10 +24,10 @@ import time
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 SKILL_DIR = os.path.dirname(SCRIPT_DIR)
 
-# 添加常见 site-packages 路径
+# 添加常见 site-packages 路径（支持 venv 和系统安装）
 for path in [
     os.path.join(SKILL_DIR, 'venv', 'lib'),
-    '/data/repo/hermes-agent/venv/lib/python3.13/site-packages',
+    os.path.join(os.path.expanduser('~'), '.local', 'lib'),
 ]:
     if os.path.exists(path):
         for sub in os.listdir(path):
