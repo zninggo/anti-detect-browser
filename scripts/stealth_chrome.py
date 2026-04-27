@@ -230,8 +230,8 @@ ENGINES = {
     'google': _search_google,
 }
 
-# 默认引擎回退顺序
-FALLBACK_ORDER = ['duckduckgo', 'bing', 'google']
+# 默认引擎回退顺序（Google 优先，CAPTCHA 时自动回退）
+FALLBACK_ORDER = ['google', 'duckduckgo', 'bing']
 
 
 def search(driver, query, max_results=10, engine=None, fallback=True):
@@ -278,7 +278,7 @@ def search(driver, query, max_results=10, engine=None, fallback=True):
 
 # 保持旧的 google_search 函数向后兼容
 def google_search(driver, query, max_results=10):
-    """向后兼容 — 使用自动回退搜索"""
+    """向后兼容 - 使用自动回退搜索"""
     return search(driver, query, max_results)
 
 
@@ -293,7 +293,7 @@ def cli_main():
     search_parser = subparsers.add_parser('search', help='搜索')
     search_parser.add_argument('query', help='搜索关键词')
     search_parser.add_argument('--engine', choices=list(ENGINES.keys()),
-                               default=None, help='搜索引擎 (默认自动回退: ddg → bing → google)')
+                               default=None, help='搜索引擎 (默认自动回退: google -> ddg -> bing)')
     search_parser.add_argument('--max-results', type=int, default=10, help='最大结果数 (默认 10)')
     search_parser.add_argument('--json', action='store_true', help='以 JSON 格式输出')
 
