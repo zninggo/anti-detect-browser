@@ -3,15 +3,15 @@
 反检测 Chrome 浏览器 - 用于绕过机器人检查
 
 用法 (Python 模块):
-    from stealth_chrome import create_stealth_driver, google_search, get_page_content
+    from stealth_chrome import create_stealth_driver, search, get_page_content
     driver = create_stealth_driver()
-    results = google_search(driver, 'Python 教程')
+    results = search(driver, 'Python 教程')
     driver.quit()
 
 用法 (命令行):
     python stealth_chrome.py search "Python 教程"
+    python stealth_chrome.py search "AI 新闻" --engine bing --max-results 5
     python stealth_chrome.py get https://example.com
-    python stealth_chrome.py search "AI 新闻" --max-results 5
 """
 
 import sys
@@ -153,21 +153,11 @@ def get_page_content(driver, url=None):
     return driver.page_source
 
 
-def google_search(driver, query, max_results=10):
-    """
-    使用 Google 搜索并返回结果
-
-    Args:
-        driver: Chrome 实例
-        query: 搜索关键词
-        max_results: 最大返回结果数
-
-    Returns:
-        list of dict, 每个 dict 包含 'title' 和 'url'
-    """
+def _search_duckduckgo(driver, query, max_results=10):
+    """DuckDuckGo 搜索引擎 — 最可靠，不易被 CAPTCHA"""
     from selenium.webdriver.common.keys import Keys
 
-    driver.get('https://www.google.com')
+    driver.get('https://duckduckgo.com')
     time.sleep(2)
 
     search_box = driver.find_element(By.NAME, 'q')
@@ -175,19 +165,154 @@ def google_search(driver, query, max_results=10):
     search_box.send_keys(Keys.RETURN)
     time.sleep(3)
 
-    # 提取搜索结果
-    h3_elements = driver.find_elements(By.CSS_SELECTOR, '#search a h3')
+    # DuckDuckGo 结果选择器
+    result_links = driver.find_elements(By.CSS_SELECTOR, 'article h2 a, [data-testid="result-title-a"]')
     results = []
 
-    for h3 in h3_elements[:max_results]:
+    for link in result_links[:max_results]:
         try:
-            title = h3.text
-            link = h3.find_element(By.XPATH, '..').get_attribute('href')
-            results.append({'title': title, 'url': link})
+            title = link.text.strip()
+            url = link.get_attribute('href')
+            if title and url:
+                results.append({'title': title, 'url': url})
         except:
             pass
 
     return results
+
+
+def _search_bing(driver, query, max_results=10):
+    """Bing 搜索引擎"""
+    from selenium.webdriver.common.keys import Keys
+
+    driver.get('https://www.bing.com')
+    time.sleep(2)
+
+    search_box = driver.find_element(By.NAME, 'q')
+    search_box.send_keys(query)
+    search_box.send_keys(Keys.RETURN)
+    time.sleep(3)
+
+    # Bing 结果：h2 > a，链接在 a 标签上
+    result_h2s = driver.find_elements(By.CSS_SELECTOR, 'li.b_algo h2, .b_algo h2')
+    results = []
+
+    for h2 in result_h2s[:max_results]:
+        try:
+            # 尝试在 h2 内找 a 标签
+            a_tag = h2.find_element(By.TAG_NAME, 'a')
+            title = a_tag.text.strip()
+            url = a_tag.get_attribute('href')
+            if title and url:
+                results.append({'title': title, 'url': url})
+        except:
+            # 回退：尝试父元素的 href
+            try:
+                title = h2.text.strip()
+                parent = h2.find_element(By.XPATH, '..')
+                url = parent.get_attribute('href')
+                if title and url:
+                    results.append({'title': title, 'url': url})
+            except:
+                pass
+
+    return results
+
+
+def _search_google(driver, query, max_results=10):
+    """Google 搜索引擎 — 可能被 CAPTCHA 拦截"""
+    from selenium.webdriver.common.keys import Keys
+
+    driver.get('https://www.google.com')
+    time.sleep(2)
+
+    # 检查是否被 CAPTCHA 拦截
+    if '/sorry/' in driver.current_url:
+        raise RuntimeError('Google CAPTCHA 检测，请使用 --engine duckduckgo 或 --engine bing')
+
+    search_box = driver.find_element(By.NAME, 'q')
+    search_box.send_keys(query)
+    search_box.send_keys(Keys.RETURN)
+    time.sleep(3)
+
+    # 再次检查是否被 CAPTCHA 拦截
+    if '/sorry/' in driver.current_url:
+        raise RuntimeError('Google CAPTCHA 检测，请使用 --engine duckduckgo 或 --engine bing')
+
+    # Google 结果选择器
+    h3_elements = driver.find_elements(By.CSS_SELECTOR, '#search a h3, #rso a h3, div.g a h3')
+    results = []
+
+    for h3 in h3_elements[:max_results]:
+        try:
+            title = h3.text.strip()
+            link = h3.find_element(By.XPATH, '..').get_attribute('href')
+            if title and link:
+                results.append({'title': title, 'url': link})
+        except:
+            pass
+
+    return results
+
+
+# 搜索引擎注册表
+ENGINES = {
+    'duckduckgo': _search_duckduckgo,
+    'ddg': _search_duckduckgo,
+    'bing': _search_bing,
+    'google': _search_google,
+}
+
+# 默认引擎回退顺序
+FALLBACK_ORDER = ['duckduckgo', 'bing', 'google']
+
+
+def search(driver, query, max_results=10, engine=None, fallback=True):
+    """
+    搜索并返回结果
+
+    Args:
+        driver: Chrome 实例
+        query: 搜索关键词
+        max_results: 最大返回结果数
+        engine: 指定搜索引擎 (duckduckgo/ddg/bing/google)，None=自动回退
+        fallback: 失败时是否自动回退到下一个引擎
+
+    Returns:
+        list of dict, 每个 dict 包含 'title' 和 'url'
+    """
+    if engine:
+        engine_key = engine.lower()
+        if engine_key not in ENGINES:
+            raise ValueError(f'不支持的搜索引擎: {engine}，可用: {list(ENGINES.keys())}')
+        engines_to_try = [engine_key]
+    else:
+        engines_to_try = FALLBACK_ORDER
+
+    last_error = None
+    for eng in engines_to_try:
+        try:
+            results = ENGINES[eng](driver, query, max_results)
+            if results:
+                return results
+            # 如果没结果但没报错，尝试下一个引擎
+            last_error = RuntimeError(f'{eng}: 未找到搜索结果')
+        except Exception as e:
+            last_error = e
+            if not fallback:
+                raise
+            continue
+
+    # 所有引擎都失败
+    if last_error:
+        raise last_error
+    return []
+
+
+# 保持旧的 google_search 函数向后兼容
+def google_search(driver, query, max_results=10):
+    """向后兼容 — 使用自动回退搜索"""
+    return search(driver, query, max_results)
 
 
 def cli_main():
@@ -198,8 +323,10 @@ def cli_main():
     subparsers = parser.add_subparsers(dest='command', help='可用命令')
 
     # search 子命令
-    search_parser = subparsers.add_parser('search', help='Google 搜索')
+    search_parser = subparsers.add_parser('search', help='搜索')
     search_parser.add_argument('query', help='搜索关键词')
+    search_parser.add_argument('--engine', choices=list(ENGINES.keys()),
+                               default=None, help='搜索引擎 (默认自动回退: ddg → bing → google)')
     search_parser.add_argument('--max-results', type=int, default=10, help='最大结果数 (默认 10)')
     search_parser.add_argument('--json', action='store_true', help='以 JSON 格式输出')
 
@@ -219,7 +346,7 @@ def cli_main():
         driver = create_stealth_driver()
 
         if args.command == 'search':
-            results = google_search(driver, args.query, max_results=args.max_results)
+            results = search(driver, args.query, max_results=args.max_results, engine=args.engine)
             if args.json:
                 print(json.dumps(results, ensure_ascii=False, indent=2))
             else:
@@ -255,8 +382,8 @@ if __name__ == '__main__':
         print("Creating stealth Chrome driver...")
         driver = create_stealth_driver()
 
-        print("Testing with Google...")
-        title = safe_get(driver, 'https://www.google.com')
+        print("Testing with DuckDuckGo...")
+        title = safe_get(driver, 'https://duckduckgo.com')
         print(f"Page title: {title}")
 
         webdriver_val = driver.execute_script("return navigator.webdriver")
