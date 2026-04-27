@@ -240,11 +240,14 @@ driver.quit()
 ```
 
 ## 反检测效果
+
+以下由 undetected-chromedriver 自动处理，无需手动注入 CDP 脚本：
 - navigator.webdriver: None（正常浏览器也是这个值）
 - User-Agent: 伪装为 Windows Chrome 147
-- Platform: 伪装为 Win32
 - Languages: zh-CN, zh, en-US, en
 - 已通过 Google 搜索测试，不会触发 reCAPTCHA
+
+> **注意**：不要通过 `execute_cdp_cmd` 手动注入反检测脚本！undetected-chromedriver 已经内置了完善的反检测机制，额外注入反而会与之冲突导致被检测到（详见"已知陷阱"）。
 
 ## 关键点
 1. **必须在最后调用 driver.quit()** 释放资源
@@ -252,6 +255,7 @@ driver.quit()
 3. 如果需要点击页面元素、填表等操作，用 selenium 的 By 定位
 4. 每次只创建一个 driver 实例，用完立即 quit
 5. 建议用 try-finally 包裹确保资源释放
+6. **不要手动注入 CDP 反检测脚本**，让 undetected-chromedriver 全权处理
 
 ## 与其他 Skill 的配合
 
@@ -406,6 +410,27 @@ if data.get('code') == 0:
 ---
 
 ## 已知陷阱
+
+### ⚠️ 不要手动注入 CDP 反检测脚本（最重要）
+
+**症状：** Google 搜索触发 CAPTCHA，但不注入 CDP 脚本时一切正常
+
+**原因：** undetected-chromedriver 内部已有完善的反检测机制（隐藏 webdriver 标志、修补指纹等）。手动通过 `execute_cdp_cmd` 注入的反检测脚本会与其冲突，反而暴露自动化特征。特别危险的注入：
+- `plugins: [1, 2, 3, 4, 5]` — 返回数字数组而非 Plugin 对象，Google 一检测就露馅
+- `navigator.webdriver = undefined` — 与 uc 内部补丁冲突
+- `window.chrome = {...}` — 不完整的 chrome 对象暴露破绽
+
+**正确做法：** 不注入任何 CDP 脚本，让 undetected-chromedriver 全权处理：
+```python
+driver = uc.Chrome(options=options, version_main=147)
+# 不要调用 driver.execute_cdp_cmd()！
+```
+
+**实测结论：**
+| 场景 | 结果 |
+|------|------|
+| headless + CDP 脚本注入 | ❌ Google CAPTCHA |
+| headless + 不注入（让 uc 自己处理） | ✅ 搜索正常 |
 
 ### Chrome 进程残留导致 Session 创建失败
 
