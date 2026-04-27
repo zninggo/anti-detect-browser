@@ -77,43 +77,10 @@ def create_stealth_driver(headless=True, window_size='1920,1080', lang='zh-CN'):
     )
 
     driver = uc.Chrome(options=options, version_main=147)
-
-    # 注入额外的反检测脚本
-    driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
-        'source': '''
-            // 隐藏 webdriver 标志
-            Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
-
-            // 伪装平台
-            Object.defineProperty(navigator, 'platform', {get: () => 'Win32'});
-
-            // 伪装语言
-            Object.defineProperty(navigator, 'languages', {
-                get: () => ['zh-CN', 'zh', 'en-US', 'en']
-            });
-
-            // 伪装 plugins 数量
-            Object.defineProperty(navigator, 'plugins', {
-                get: () => [1, 2, 3, 4, 5]
-            });
-
-            // 隐藏 Chrome 自动化特征
-            window.chrome = {
-                runtime: {},
-                loadTimes: function() {},
-                csi: function() {},
-                app: {}
-            };
-
-            // 伪装 permissions
-            const originalQuery = window.navigator.permissions.query;
-            window.navigator.permissions.query = (parameters) => (
-                parameters.name === 'notifications' ?
-                Promise.resolve({ state: Notification.permission }) :
-                originalQuery(parameters)
-            );
-        '''
-    })
+    # 注意：不要手动注入 CDP 反检测脚本！
+    # undetected-chromedriver 自己已经做了完整的反检测处理
+    # 额外注入的 CDP 脚本（尤其是 plugins: [1,2,3,4,5]）反而暴露自动化特征
+    # 测试证明：有 CDP 注入 → Google CAPTCHA，无 CDP 注入 → 正常搜索
 
     return driver
 
