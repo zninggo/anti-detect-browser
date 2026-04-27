@@ -28,7 +28,7 @@ triggers:
 - 需要绕过机器人检查的任何场景
 
 反检测 Chrome 浏览器，使用 undetected-chromedriver 绕过机器人检查。
-支持多搜索引擎自动回退（DuckDuckGo → Bing → Google），适用于所有需要搜索或抓取网页内容的场景。
+支持多搜索引擎自动回退（Google → DuckDuckGo → Bing），适用于所有需要搜索或抓取网页内容的场景。
 
 ## 首次使用检查清单
 
@@ -69,7 +69,7 @@ python3 -c "import undetected_chromedriver; import selenium; print('OK')"
 #### 方式 A：命令行直接调用
 
 ```bash
-# 搜索（默认使用 DuckDuckGo，失败自动回退 Bing → Google）
+# 搜索（默认使用 Google，CAPTCHA 自动回退 DuckDuckGo → Bing）
 python scripts/stealth_chrome.py search "Python 教程"
 
 # 指定搜索引擎
@@ -143,7 +143,7 @@ python3 /path/to/anti-detect-browser/scripts/stealth_chrome.py search "关键词
 - `engine`: 指定搜索引擎 (`duckduckgo`/`ddg`/`bing`/`google`)，None=自动回退
 - `fallback`: 失败时是否自动回退到下一个引擎（默认 True）
 - 返回: list of dict，每个包含 'title' 和 'url'
-- 回退顺序: DuckDuckGo → Bing → Google
+- 回退顺序: Google → DuckDuckGo → Bing
 
 ### google_search(driver, query, max_results=10)
 向后兼容函数，等同于 `search(driver, query, max_results)`
