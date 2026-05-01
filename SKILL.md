@@ -479,7 +479,12 @@ ss -tlnp | grep 9222 || echo "Port free"
 ### 元素定位失败
 - 页面未完全加载时查找元素会失败
 - 使用 safe_get() 而非 driver.get() 可确保页面加载完成
-- 动态内容可能需要 time.sleep() 等待
+- 动态内容优先使用 `WebDriverWait` 显式等待目标元素，不要只加固定 `time.sleep()`
+
+### Bing 搜索结果异步渲染
+- Bing 搜索结果页的 `li.b_algo h2 a` 会异步出现，固定 `time.sleep(3)` 可能提前解析导致空结果
+- 直接打开 `https://www.bing.com/search?q=...` 在当前环境不如从首页输入框提交稳定
+- 正确做法：先访问 `https://www.bing.com`，等待 `name="q"` 搜索框，提交后等待 `li.b_algo h2 a` 再提取结果
 
 ### JS 渲染页面抓取失败
 - `stealth_chrome.py get` 命令返回的是原始 HTML，不执行 JavaScript

@@ -164,35 +164,30 @@ def _search_bing(driver, query, max_results=10):
     from selenium.webdriver.common.keys import Keys
 
     driver.get('https://www.bing.com')
-    time.sleep(2)
-
-    search_box = driver.find_element(By.NAME, 'q')
+    search_box = WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located((By.NAME, 'q'))
+    )
     search_box.send_keys(query)
     search_box.send_keys(Keys.RETURN)
-    time.sleep(3)
 
-    # Bing 结果：h2 > a，链接在 a 标签上
-    result_h2s = driver.find_elements(By.CSS_SELECTOR, 'li.b_algo h2, .b_algo h2')
+    # Bing 结果会异步渲染，固定 sleep 容易在结果出现前就解析。
+    WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located((By.CSS_SELECTOR, 'li.b_algo h2 a'))
+    )
+
+    result_links = driver.find_elements(By.CSS_SELECTOR, 'li.b_algo h2 a')
     results = []
 
-    for h2 in result_h2s[:max_results]:
+    for link in result_links:
         try:
-            # 尝试在 h2 内找 a 标签
-            a_tag = h2.find_element(By.TAG_NAME, 'a')
-            title = a_tag.text.strip()
-            url = a_tag.get_attribute('href')
+            title = link.text.strip()
+            url = link.get_attribute('href')
             if title and url:
                 results.append({'title': title, 'url': url})
-        except:
-            # 回退：尝试父元素的 href
-            try:
-                title = h2.text.strip()
-                parent = h2.find_element(By.XPATH, '..')
-                url = parent.get_attribute('href')
-                if title and url:
-                    results.append({'title': title, 'url': url})
-            except:
-                pass
+            if len(results) >= max_results:
+                break
+        except Exception:
+            pass
 
     return results
 
