@@ -19,6 +19,7 @@ import os
 import json
 import argparse
 import time
+import urllib.parse
 
 # Windows 平台环境下强制使用 UTF-8 编码，防止打印非 ASCII 字符时崩溃 (gbk codec error)
 if sys.platform == 'win32':
@@ -131,6 +132,38 @@ def get_page_content(driver, url=None):
     return driver.page_source
 
 
+def _is_ad_result(url):
+    """识别搜索引擎广告和付费点击跳转链接。"""
+    if not url:
+        return True
+
+    parsed = urllib.parse.urlparse(url)
+    host = parsed.netloc.lower()
+    path = parsed.path.lower()
+    query = urllib.parse.parse_qs(parsed.query)
+    query_keys = set(query)
+
+    if 'duckduckgo.com' in host and path.endswith('/y.js'):
+        return True
+    if 'bing.com' in host and (path.endswith('/aclick') or 'ad_domain' in query_keys):
+        return True
+    if 'google.' in host and (path.startswith('/aclk') or path.startswith('/pagead/')):
+        return True
+    if {'adurl', 'ad_domain', 'ad_provider', 'ad_type'} & query_keys:
+        return True
+
+    return False
+
+
+def _append_search_result(results, seen_urls, title, url, max_results):
+    """过滤广告、空值和重复 URL 后追加搜索结果。"""
+    if not title or not url or _is_ad_result(url) or url in seen_urls:
+        return False
+    results.append({'title': title, 'url': url})
+    seen_urls.add(url)
+    return len(results) >= max_results
+
+
 def _search_duckduckgo(driver, query, max_results=10):
     """DuckDuckGo 搜索引擎 — 最可靠，不易被 CAPTCHA"""
     from selenium.webdriver.common.keys import Keys
@@ -146,14 +179,15 @@ def _search_duckduckgo(driver, query, max_results=10):
     # DuckDuckGo 结果选择器
     result_links = driver.find_elements(By.CSS_SELECTOR, 'article h2 a, [data-testid="result-title-a"]')
     results = []
+    seen_urls = set()
 
-    for link in result_links[:max_results]:
+    for link in result_links:
         try:
             title = link.text.strip()
             url = link.get_attribute('href')
-            if title and url:
-                results.append({'title': title, 'url': url})
-        except:
+            if _append_search_result(results, seen_urls, title, url, max_results):
+                break
+        except Exception:
             pass
 
     return results
@@ -177,14 +211,13 @@ def _search_bing(driver, query, max_results=10):
 
     result_links = driver.find_elements(By.CSS_SELECTOR, 'li.b_algo h2 a')
     results = []
+    seen_urls = set()
 
     for link in result_links:
         try:
             title = link.text.strip()
             url = link.get_attribute('href')
-            if title and url:
-                results.append({'title': title, 'url': url})
-            if len(results) >= max_results:
+            if _append_search_result(results, seen_urls, title, url, max_results):
                 break
         except Exception:
             pass
@@ -215,14 +248,15 @@ def _search_google(driver, query, max_results=10):
     # Google 结果选择器
     h3_elements = driver.find_elements(By.CSS_SELECTOR, '#search a h3, #rso a h3, div.g a h3')
     results = []
+    seen_urls = set()
 
-    for h3 in h3_elements[:max_results]:
+    for h3 in h3_elements:
         try:
             title = h3.text.strip()
-            link = h3.find_element(By.XPATH, '..').get_attribute('href')
-            if title and link:
-                results.append({'title': title, 'url': link})
-        except:
+            url = h3.find_element(By.XPATH, '..').get_attribute('href')
+            if _append_search_result(results, seen_urls, title, url, max_results):
+                break
+        except Exception:
             pass
 
     return results

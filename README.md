@@ -65,7 +65,7 @@ python3 scripts/stealth_chrome.py search "浏览器自动化" --engine bing
 python3 scripts/stealth_chrome.py get https://example.com --length 1000
 ```
 
-默认搜索顺序是 Google -> DuckDuckGo -> Bing。如果某个搜索引擎失败，工具会自动尝试下一个。
+默认搜索顺序是 Google -> DuckDuckGo -> Bing。如果某个搜索引擎失败，工具会自动尝试下一个。搜索结果会过滤常见广告和付费点击跳转，尽量只返回自然结果。
 
 ## Python 用法
 

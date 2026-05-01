@@ -143,6 +143,7 @@ python3 /path/to/anti-detect-browser/scripts/stealth_chrome.py search "关键词
 - `engine`: 指定搜索引擎 (`duckduckgo`/`ddg`/`bing`/`google`)，None=自动回退
 - `fallback`: 失败时是否自动回退到下一个引擎（默认 True）
 - 返回: list of dict，每个包含 'title' 和 'url'
+- 默认过滤常见广告和付费点击跳转链接，尽量只返回自然搜索结果
 - 回退顺序: Google → DuckDuckGo → Bing
 
 ### google_search(driver, query, max_results=10)
@@ -485,6 +486,11 @@ ss -tlnp | grep 9222 || echo "Port free"
 - Bing 搜索结果页的 `li.b_algo h2 a` 会异步出现，固定 `time.sleep(3)` 可能提前解析导致空结果
 - 直接打开 `https://www.bing.com/search?q=...` 在当前环境不如从首页输入框提交稳定
 - 正确做法：先访问 `https://www.bing.com`，等待 `name="q"` 搜索框，提交后等待 `li.b_algo h2 a` 再提取结果
+
+### 搜索广告过滤
+- 搜索输出会过滤常见广告和付费点击跳转，避免 LLM 把广告当成普通搜索结果
+- 典型广告形态：DuckDuckGo `/y.js?ad_*`、Bing `/aclick` 或 `ad_domain`、Google `/aclk` 或 `/pagead/`
+- 过滤后再计算 `max_results`，避免广告占用返回名额
 
 ### JS 渲染页面抓取失败
 - `stealth_chrome.py get` 命令返回的是原始 HTML，不执行 JavaScript
